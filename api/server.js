@@ -10,15 +10,22 @@ server.use(express.json());
 
 server.post("/api/users", (req, res) => {
   const newUser = req.body;
-  User.insert(newUser)
-    .then((user) => {
-      res.json(user);
-    })
-    .catch(() => {
-      res.status(500).json({
-        message: "There was an error while saving the user to the database",
+
+  if (!newUser.name || !newUser) {
+    res
+      .status(400)
+      .json({ message: "Please provide name and bio for the user" });
+  } else {
+    User.insert(newUser)
+      .then((user) => {
+        res.status(201).json(user);
+      })
+      .catch(() => {
+        res.status(500).json({
+          message: "There was an error while saving the user to the database",
+        });
       });
-    });
+  }
 });
 
 //[GET]
@@ -28,7 +35,7 @@ server.get("/api/users", (req, res) => {
       console.log(users);
       res.status(200).json(users);
     })
-    .catch((err) => {
+    .catch(() => {
       res
         .status(500)
         .json({ message: "The users information could not be retrieved" });
@@ -40,22 +47,34 @@ server.get("./api/users/:id", (req, res) => {
   const idVar = req.params.id;
   User.findById(idVar)
     .then((user) => {
-      res.json(user);
+      if (!user) {
+        res
+          .status(404)
+          .json({ message: "The user with the specified ID does not exist" });
+      } else {
+        res.json(user);
+      }
     })
     .catch((err) => {
       res
-        .status(404)
+        .status(500)
         .json({ message: "The user with the specified ID does not exist" });
     });
 });
 
-//[PUT]
-server.put("/api/users/:id", async (req, res) => {
-  const { id } = req.params;
-  const changes = req.body;
+//[DELETE]
+server.delete("/api/users/:id", async (req, res) => {
   try {
-    const updateUser = await User.update(id, changes);
-    res.status(200).json(updateUser);
+    const { id } = req.params;
+    const deleteUser = await User.remove(id);
+
+    if (!deleteUser) {
+      res
+        .status(404)
+        .json({ message: "The user with the specified ID does not exist" });
+    } else {
+      res.status(201).json(deleteUser);
+    }
   } catch {
     res
       .status(500)
@@ -63,12 +82,23 @@ server.put("/api/users/:id", async (req, res) => {
   }
 });
 
-//[DELETE]
-server.delete("/api/users/:id", async (req, res) => {
+//[PUT]
+server.put("/api/users/:id", async (req, res) => {
+  const { id } = req.params;
+  const changes = req.body;
   try {
-    const { id } = req.params;
-    const deleteUser = await User.delete(id);
-    res.status(201).json(deleteUser);
+    if (!id) {
+      res
+        .status(404)
+        .json({ message: "The user with the specified ID does not exist" });
+    } else if (!changes.name || !changes.bio) {
+      res
+        .status(400)
+        .json({ message: "Please provide name and bio for the user" });
+    } else {
+      const updateUser = await User.update(id, changes);
+      res.status(200).json(updateUser);
+    }
   } catch {
     res
       .status(500)
